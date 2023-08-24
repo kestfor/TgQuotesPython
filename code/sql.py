@@ -92,6 +92,17 @@ CREATE TABLE IF NOT EXISTS from_users (
 ) ENGINE = InnoDB
 """
 
+create_games_table = f"""
+CREATE TABLE IF NOT EXISTS games (
+    quote_id INT AUTO_INCREMENT,
+    category_id INT
+    quote TEXT,
+    game TEXT,
+    PRIMARY KEY (quote_id)
+    FOREIGN KEY (category_id) REFERENCES categories (id)
+)
+"""
+
 
 def create_connection(configuration) -> CMySQLConnection | MySQLConnection | None:
     connect = None
