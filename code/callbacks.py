@@ -71,20 +71,13 @@ async def callback_cmd_info(callback: CallbackQuery):
 
 @router.callback_query(F.data == "get_next_user_quote")
 async def callback_get_user_quote(callback: CallbackQuery):
-    val = None
     if callback.from_user.id not in users_quotes:
         val = await sql.get_users_quotes_ids(
             connection, callback.from_user.id)
         users_quotes[callback.from_user.id] = Queue(values=val)
     quote_id = users_quotes[callback.from_user.id].get()
-    if quote_id is None:
-        val = await sql.get_users_quotes_ids(
-            connection, callback.from_user.id)
-        if val is not None:
-            users_quotes[callback.from_user.id] = Queue(values=val)
-            quote_id = users_quotes[callback.from_user.id].get()
     builder = InlineKeyboardBuilder()
-    if val is None:
+    if quote_id is None:
         text = "Больше цитат нет"
     else:
         builder.row(types.InlineKeyboardButton(text="следующая", callback_data="get_next_user_quote"))
@@ -112,14 +105,8 @@ async def callback_get_liked_quote(callback: CallbackQuery):
         quote_id = None
     builder = InlineKeyboardBuilder()
     if quote_id is None:
-        ids = await sql.get_liked(connection, callback.from_user.id)
-        if ids is None:
-            builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
-            await callback.message.edit_text("Больше цитат нет", reply_markup=builder.as_markup())
-        else:
-            ids = [(item[1], item[2]) for item in ids]
-            users_liked[callback.from_user.id] = Queue(values=ids)
-            quote_id, category_id = users_liked[callback.from_user.id].get()
+        builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
+        await callback.message.edit_text("Больше цитат нет", reply_markup=builder.as_markup())
     category = await sql.get_category_name(connection, "categories", category_id)
     amount_keys = 3 if category == 'books' else 2
     builder.row(types.InlineKeyboardButton(text="следующая", callback_data="get_next_liked_quote"))
