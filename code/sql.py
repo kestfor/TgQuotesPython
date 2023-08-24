@@ -1,3 +1,4 @@
+import asyncio
 import json
 import mysql.connector
 from mysql.connector import Error
@@ -115,13 +116,9 @@ def create_connection(configuration) -> CMySQLConnection | MySQLConnection | Non
 
 
 async def execute_query(connect: CMySQLConnection | MySQLConnection | None, query) -> None:
-    try:
-        cursor = connect.cursor()
-        cursor.execute(query)
-        connect.commit()
-        logging.log(level=logging.INFO, msg="Query executed successfully")
-    except Error as err:
-        logging.log(level=logging.CRITICAL, msg=err)
+    cursor = connect.cursor()
+    cursor.execute(query)
+    connect.commit()
 
 
 async def get_category_name(connect, main_table, category_id):
@@ -167,24 +164,27 @@ async def add_category(connect, category: str):
 
 
 async def add_quote(connect, table_name, data: dict):
+    query = f"INSERT INTO {table_name}"
+    keys = ""
+    values = ""
+    for key, value in data.items():
+        keys += ' ' + str(key) + ','
+        if type(value) is str:
+            value = value.replace("'", "\\'")
+            values += ' ' + f"'{value}'" + ','
+        else:
+            values += ' ' + str(value) + ','
+    keys = '(' + keys[:-1] + ')'
+    values = '(' + values[:-1] + ')'
+    query += ' ' + keys + ' VALUES ' + values
     try:
-        query = f"INSERT INTO {table_name}"
-        keys = ""
-        values = ""
-        for key, value in data.items():
-            keys += ' ' + str(key) + ','
-            if type(value) is str:
-                value = value.replace("'", "\\'")
-                values += ' ' + f"'{value}'" + ','
-            else:
-                values += ' ' + str(value) + ','
-        keys = '(' + keys[:-1] + ')'
-        values = '(' + values[:-1] + ')'
-        query += ' ' + keys + ' VALUES ' + values
         await execute_query(connect, query)
-        logging.info(f"successfully added quote to {table_name}")
     except Error as err:
         logging.log(logging.CRITICAL, err)
+        return Exception("this quote already exist")
+    else:
+        logging.info(f"successfully added quote to {table_name}")
+        return None
 
 
 async def fix_id(connect, table_name, id_name):
@@ -414,5 +414,9 @@ async def get_liked(connect, chat_id):
 connection = create_connection(CONFIG)
 
 
-if __name__ == "__main__":
+async def main():
     pass
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

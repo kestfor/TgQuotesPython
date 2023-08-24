@@ -6,13 +6,18 @@ from sql import connection
 
 
 class Queue:
-    def __init__(self, values: list | tuple = None, start=None, end=None, ):
+    def __init__(self, values: list | tuple = None, start=None, end=None):
+        self.last = None
         if start is None and end is None and values is not None:
             self._queue = values
-        else:
+            self.last = self._queue[0]
+            random.shuffle(self._queue)
+        elif start <= end:
             self._queue = list(range(start, end + 1))
-        random.shuffle(self._queue)
-        self.last = self._queue[0]
+            self.last = self._queue[0]
+            random.shuffle(self._queue)
+        else:
+            self._queue = []
 
     def get(self):
         if len(self._queue) > 0:
@@ -65,8 +70,6 @@ class AddQuoteFilter:
 name_filter = SetNameFilter()
 quote_filter = AddQuoteFilter()
 last_quote_data = None
-USERS_AMOUNT_QUOTES = sql.get_amount_category_quotes(connection, "from_users")
-GAMES_AMOUNT_QUOTES = sql.get_amount_category_quotes(connection, "games")
 
 
 def format_text(data, amount_keys=None):
@@ -81,7 +84,7 @@ def format_text(data, amount_keys=None):
 
 def get_menu_inline_keyboard():
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text='категории', callback_data="get_categories"))
+    builder.row(types.InlineKeyboardButton(text='категории', callback_data="clear_get_categories"))
     builder.row(types.InlineKeyboardButton(text='обо мне', callback_data="info"),
                 types.InlineKeyboardButton(text='забыть меня', callback_data="forget_me"))
     builder.row(types.InlineKeyboardButton(text='добавить свою цитату', callback_data="add_quote"))
@@ -93,8 +96,8 @@ def get_inline_keyboard(data: str, like_visible=True):
     builder.row(types.InlineKeyboardButton(text="следующая", callback_data=data))
     if like_visible:
         builder.row(types.InlineKeyboardButton(text="❤️", callback_data="like_quote"))
-    builder.row(types.InlineKeyboardButton(text='категории', callback_data="get_categories"))
-    builder.row(types.InlineKeyboardButton(text='вернуться на главную', callback_data="comeback_to_menu"))
+    builder.row(types.InlineKeyboardButton(text='категории', callback_data="clear_get_categories"))
+    builder.row(types.InlineKeyboardButton(text='вернуться на главную', callback_data="clear_comeback_to_menu"))
     return builder
 
 
@@ -102,18 +105,15 @@ def get_inline_keyboard(data: str, like_visible=True):
 #     data = sql.get_quote(connection, category, random.randint(id_range[0], id_range[-1]))
 #     return format_text(data, amount_keys)
 
-async def get_quote(category: str, chat_id: int, amount_keys=None) -> str:
+async def get_quote(category: str, chat_id: int, amount_keys=None) -> str | None:
     category_id = await sql.get_category_id(connection, "categories", category)
-    if chat_id not in users_queue or category_id not in users_queue[chat_id]:
+    if chat_id not in users_queue or users_queue[chat_id] is None or category_id not in users_queue[chat_id]:
         start = 1
         end = await sql.get_amount_category_quotes(connection, category)
         users_queue[chat_id] = {category_id: Queue(start=start, end=end)}
     quote_id = users_queue[chat_id][category_id].get()
     if quote_id is None:
-        start = 1
-        end = await sql.get_amount_category_quotes(connection, category)
-        users_queue[chat_id] = {category_id: Queue(start=start, end=end)}
-        quote_id = users_queue[chat_id][category_id].get()
+        return None
     data = await sql.get_quote(connection, category, quote_id)
     global last_quote_data
     last_quote_data = sql.last_quote_data

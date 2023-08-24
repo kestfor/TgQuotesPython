@@ -37,11 +37,14 @@ async def cmd_add_quote(message: types.Message):
         data["quote"] = message.text
         data["author"] = await sql.get_user_name(connection, message.chat.id)
         data["chat_id"] = message.chat.id
-        await sql.add_quote(connection, "from_users", data)
-        amount_quotes = await sql.get_amount_user_quotes(connection, message.chat.id)
-        await message.answer(f"Новая цитата добавлена, всего твоих цитат: "
-                             f"{amount_quotes}",
-                             reply_markup=get_menu_inline_keyboard().as_markup())
+        error = await sql.add_quote(connection, "from_users", data)
+        if error is None:
+            amount_quotes = await sql.get_amount_user_quotes(connection, message.chat.id)
+            await message.answer(f"Новая цитата добавлена, всего твоих цитат: "
+                                 f"{amount_quotes}",
+                                 reply_markup=get_menu_inline_keyboard().as_markup())
+        else:
+            await message.answer("Такая цитата уже существует", reply_markup=get_menu_inline_keyboard().as_markup())
 
 
 @router.message(name_filter)

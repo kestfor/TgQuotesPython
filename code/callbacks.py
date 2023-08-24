@@ -43,14 +43,18 @@ async def callback_cancel_deleting_user(callback: types.CallbackQuery):
     await callback.answer()
 
 
+async def handle_unknown_user(callback: CallbackQuery):
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(text="Ввести имя", callback_data="set_name"))
+    text = "мы еще не знакомы, но это можно исправить"
+    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+
+
 @router.callback_query(F.data == "info")
 async def callback_cmd_info(callback: CallbackQuery):
     name = await sql.get_user_name(connection, callback.from_user.id)
-    builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(text="Ввести имя", callback_data="set_name"))
     if name is None:
-        text = "мы еще не знакомы, но это можно исправить"
-        await callback.message.edit_text(text, reply_markup=builder.as_markup())
+        await handle_unknown_user(callback)
     else:
         amount_liked = await sql.get_amount_liked(connection, callback.from_user.id)
         amount_added = await sql.get_amount_user_quotes(connection, callback.message.chat.id)
@@ -64,7 +68,7 @@ async def callback_cmd_info(callback: CallbackQuery):
         if amount_liked:
             builder.row(types.InlineKeyboardButton(text="просмотреть понравившиеся",
                                                    callback_data="get_next_liked_quote"))
-        builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="comeback_to_menu"))
+        builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
         await callback.message.edit_text(text, parse_mode="html", reply_markup=builder.as_markup())
     await callback.answer()
 
@@ -99,11 +103,11 @@ async def callback_get_liked_quote(callback: CallbackQuery):
         ids = await sql.get_liked(connection, callback.from_user.id)
         ids = [(item[1], item[2]) for item in ids]
         users_liked[callback.from_user.id] = Queue(values=ids)
+    builder = InlineKeyboardBuilder()
     if len(users_liked[callback.from_user.id]) > 0:
         quote_id, category_id = users_liked[callback.from_user.id].get()
     else:
         quote_id = None
-    builder = InlineKeyboardBuilder()
     if quote_id is None:
         builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
         await callback.message.edit_text("Больше цитат нет", reply_markup=builder.as_markup())
@@ -123,7 +127,7 @@ async def callback_unlike_quote(callback: CallbackQuery):
     await sql.unlike_quote(connection, quote_id, category_id, callback.from_user.id)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text="следующая", callback_data="get_next_liked_quote"))
-    builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="comeback_to_menu"))
+    builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
     await callback.message.edit_text("Цитата удалена", reply_markup=builder.as_markup())
     await callback.answer()
 
@@ -134,6 +138,8 @@ async def clear_queue(callback: CallbackQuery):
         users_quotes.pop(callback.from_user.id)
     if callback.from_user.id in users_liked:
         users_liked.pop(callback.from_user.id)
+    if callback.from_user.id in utils.users_queue:
+        utils.users_queue[callback.from_user.id] = None
     await sql.fix_id(connection, "from_users", "quote_id")
     await callback_menu(callback)
 
@@ -144,9 +150,16 @@ async def del_user_quote(callback: CallbackQuery):
     await sql.del_quote(connection, "from_users", quote_id)
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text="следующая", callback_data="get_next_user_quote"))
-    builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="comeback_to_menu"))
+    builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
     await callback.message.edit_text("Цитата удалена", reply_markup=builder.as_markup())
     await callback.answer()
+
+
+@router.callback_query(F.data == "clear_get_categories")
+async def clear_categories(callback: CallbackQuery):
+    if callback.from_user.id in utils.users_queue:
+        utils.users_queue[callback.from_user.id] = None
+    await callback_cmd_categories(callback)
 
 
 @router.callback_query(F.data == "set_name")
@@ -178,7 +191,7 @@ async def callback_cmd_categories(callback: CallbackQuery):
             types.InlineKeyboardButton(text="книги", callback_data="next_books_quote"),
         ],
         [
-            types.InlineKeyboardButton(text="вернуться на главную", callback_data="comeback_to_menu"),
+            types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"),
         ]
     ]
     keyboard = InlineKeyboardBuilder(kb)
@@ -213,15 +226,14 @@ async def callback_next_series_quote(callback: types.CallbackQuery):
 @router.callback_query(F.data == 'next_from_users_quote')
 async def callback_next_from_users_quote(callback: types.CallbackQuery):
     builder = get_inline_keyboard("next_from_users_quote")
-    max_amount = await sql.get_amount_user_quotes(connection, callback.from_user.id)
     quote = await get_quote("from_users", callback.from_user.id, 2)
-    if max_amount > 0:
+    if quote is not None:
         await callback.message.edit_text(quote,
                                          reply_markup=builder.as_markup())
     else:
         builder = InlineKeyboardBuilder()
-        builder.row(types.InlineKeyboardButton(text='категории', callback_data="get_categories"))
-        builder.row(types.InlineKeyboardButton(text='вернуться на главную', callback_data="comeback_to_menu"))
+        builder.row(types.InlineKeyboardButton(text='категории', callback_data="clear_get_categories"))
+        builder.row(types.InlineKeyboardButton(text='вернуться на главную', callback_data="clear_comeback_to_menu"))
         await callback.message.edit_text("Похоже тут ничего нет(", reply_markup=builder.as_markup())
     await callback.answer()
 
