@@ -1,0 +1,5 @@
+code/.env
+data
+code/logs.txt
+code/parser.py
+venv
