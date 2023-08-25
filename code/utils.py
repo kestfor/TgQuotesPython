@@ -2,13 +2,13 @@ import random
 import sql
 from aiogram import types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from sql import connection
+from sql import db
 
 
 class Queue:
     def __init__(self, values: list | tuple):
         self.last = None
-        if values is not None:
+        if values is not None and len(values) > 0:
             self._queue = values
             self.last = self._queue[0]
             random.shuffle(self._queue)
@@ -102,15 +102,15 @@ def get_inline_keyboard(data: str, like_visible=True):
 #     return format_text(data, amount_keys)
 
 async def get_quote(category: str, chat_id: int, amount_keys=None) -> str | None:
-    category_id = await sql.get_category_id(connection, "categories", category)
+    category_id = await db.get_category_id("categories", category)
     if chat_id not in users_queue or users_queue[chat_id] is None or category_id not in users_queue[chat_id]:
         start = 1
-        end = await sql.get_amount_category_quotes(connection, category)
+        end = await db.get_amount_category_quotes(category)
         users_queue[chat_id] = {category_id: Queue(list(range(start, end+1)))}
     quote_id = users_queue[chat_id][category_id].get()
     if quote_id is None:
         return None
-    data = await sql.get_quote(connection, category, quote_id)
+    data = await db.get_quote(category, quote_id)
     global last_quote_data
     last_quote_data = sql.last_quote_data
     return format_text(data, amount_keys)
