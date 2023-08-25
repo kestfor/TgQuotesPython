@@ -6,14 +6,10 @@ from sql import connection
 
 
 class Queue:
-    def __init__(self, values: list | tuple = None, start=None, end=None):
+    def __init__(self, values: list | tuple):
         self.last = None
-        if start is None and end is None and values is not None:
+        if values is not None:
             self._queue = values
-            self.last = self._queue[0]
-            random.shuffle(self._queue)
-        elif start <= end:
-            self._queue = list(range(start, end + 1))
             self.last = self._queue[0]
             random.shuffle(self._queue)
         else:
@@ -73,7 +69,7 @@ last_quote_data = None
 
 
 def format_text(data, amount_keys=None):
-    if amount_keys is None:
+    if amount_keys is None or amount_keys > len(data) - 2:
         amount_keys = len(data) - 2
     text = ""
     for i in range(2, 2 + amount_keys):
@@ -110,7 +106,7 @@ async def get_quote(category: str, chat_id: int, amount_keys=None) -> str | None
     if chat_id not in users_queue or users_queue[chat_id] is None or category_id not in users_queue[chat_id]:
         start = 1
         end = await sql.get_amount_category_quotes(connection, category)
-        users_queue[chat_id] = {category_id: Queue(start=start, end=end)}
+        users_queue[chat_id] = {category_id: Queue(list(range(start, end+1)))}
     quote_id = users_queue[chat_id][category_id].get()
     if quote_id is None:
         return None

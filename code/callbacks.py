@@ -191,6 +191,12 @@ async def callback_cmd_categories(callback: CallbackQuery):
             types.InlineKeyboardButton(text="книги", callback_data="next_books_quote"),
         ],
         [
+            types.InlineKeyboardButton(text="великих людей", callback_data="next_great_people_quote"),
+        ],
+        [
+            types.InlineKeyboardButton(text="со смыслом", callback_data="next_with_meaning_quote"),
+        ],
+        [
             types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"),
         ]
     ]
@@ -199,35 +205,13 @@ async def callback_cmd_categories(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == 'next_movies_quote')
-async def callback_next_movie_quote(callback: types.CallbackQuery):
-    builder = get_inline_keyboard("next_movies_quote")
-    quote = await get_quote("movies", callback.from_user.id)
-    await callback.message.edit_text(quote, reply_markup=builder.as_markup())
-    await callback.answer()
-
-
-@router.callback_query(F.data == 'next_books_quote')
-async def callback_next_books_quote(callback: types.CallbackQuery):
-    builder = get_inline_keyboard("next_books_quote")
-    quote = await get_quote("books", callback.from_user.id)
-    await callback.message.edit_text(quote, reply_markup=builder.as_markup())
-    await callback.answer()
-
-
-@router.callback_query(F.data == 'next_series_quote')
-async def callback_next_series_quote(callback: types.CallbackQuery):
-    builder = get_inline_keyboard("next_series_quote")
-    quote = await get_quote("series", callback.from_user.id)
-    await callback.message.edit_text(quote,  reply_markup=builder.as_markup())
-    await callback.answer()
-
-
-@router.callback_query(F.data == 'next_from_users_quote')
-async def callback_next_from_users_quote(callback: types.CallbackQuery):
-    builder = get_inline_keyboard("next_from_users_quote")
-    quote = await get_quote("from_users", callback.from_user.id, 2)
+async def next_quote(callback: CallbackQuery, category):
+    amount_keys = 3 if category in ("books", "series") else 2
+    quote = await get_quote(category, callback.from_user.id, amount_keys)
     if quote is not None:
+        quote_data = sql.last_quote_data
+        like_visible = not await sql.is_liked(connection, callback.from_user.id, quote_data)
+        builder = get_inline_keyboard(f"next_{category}_quote", like_visible=like_visible)
         await callback.message.edit_text(quote,
                                          reply_markup=builder.as_markup())
     else:
@@ -238,19 +222,46 @@ async def callback_next_from_users_quote(callback: types.CallbackQuery):
     await callback.answer()
 
 
+@router.callback_query(F.data == "next_great_people_quote")
+async def callback_next_great_people_quote(callback: CallbackQuery):
+    await next_quote(callback, "great_people")
+
+
+@router.callback_query(F.data == "next_with_meaning_quote")
+async def callback_next_great_people_quote(callback: CallbackQuery):
+    await next_quote(callback, "with_meaning")
+
+
+@router.callback_query(F.data == 'next_movies_quote')
+async def callback_next_movie_quote(callback: types.CallbackQuery):
+    await next_quote(callback, "movies")
+
+
+@router.callback_query(F.data == 'next_books_quote')
+async def callback_next_books_quote(callback: types.CallbackQuery):
+    await next_quote(callback, "books")
+
+
+@router.callback_query(F.data == 'next_series_quote')
+async def callback_next_series_quote(callback: types.CallbackQuery):
+    await next_quote(callback, "series")
+
+
+@router.callback_query(F.data == 'next_from_users_quote')
+async def callback_next_from_users_quote(callback: types.CallbackQuery):
+    await next_quote(callback, "from_users")
+
+
+@router.callback_query(F.data == 'next_games_quote')
+async def callback_next_games_quote(callback: types.CallbackQuery):
+    await next_quote(callback, "games")
+
+
 @router.callback_query(F.data == "comeback_to_menu")
 async def callback_menu(callback: CallbackQuery):
     builder = get_menu_inline_keyboard()
     await callback.message.edit_text(text="возвращаемся на главную",
                                      reply_markup=builder.as_markup(resize_keyboard=True))
-    await callback.answer()
-
-
-@router.callback_query(F.data == 'next_games_quote')
-async def callback_next_games_quote(callback: types.CallbackQuery):
-    builder = get_inline_keyboard("next_games_quote")
-    quote = await get_quote("games", callback.from_user.id, 2)
-    await callback.message.edit_text(quote, reply_markup=builder.as_markup())
     await callback.answer()
 
 

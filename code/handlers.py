@@ -11,9 +11,15 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    builder = get_menu_inline_keyboard()
+    builder = InlineKeyboardBuilder()
+    builder.row(types.InlineKeyboardButton(text="ввести имя", callback_data="set_name"))
+    builder.row(types.InlineKeyboardButton(text="продолжить без аутентификации", callback_data="clear_comeback_to_menu"))
     await message.answer("Привет, я бот с цитатами, ты можешь попросить меня прислать цитату определенной категории "
-                         "или добавить свою собственную, попробуй!",
+                         "или добавить свою собственную, попробуй!\n"
+                         "Ты можешь ввести имя, для того чтобы добавлять свои цитаты или лайкать существующие,"
+                         " либо продолжить без аутентификации, "
+                         "вести имя или изменить его можно будет в любое время в разделе 'обо мне'\n"
+                         "попасть в меню в любой момент можно командой '/menu'",
                          reply_markup=builder.as_markup(resize_keyboard=True))
 
 

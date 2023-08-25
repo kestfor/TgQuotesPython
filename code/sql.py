@@ -27,6 +27,26 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE = InnoDB
 """
 
+create_great_people_table = f"""
+CREATE TABLE IF NOT EXISTS great_people (
+    quote_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT,
+    quote TEXT,
+    author TEXT,
+    FOREIGN KEY (category_id) REFERENCES categories (id) 
+) ENGINE = InnoDB
+"""
+
+create_with_meaning_table = f"""
+CREATE TABLE IF NOT EXISTS with_meaning (
+    quote_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT,
+    quote TEXT,
+    author TEXT,
+    FOREIGN KEY (category_id) REFERENCES categories (id) 
+) ENGINE = InnoDB
+"""
+
 create_likes_table = f'''
 CREATE TABLE IF NOT EXISTS likes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -411,12 +431,30 @@ async def get_liked(connect, chat_id):
         logging.critical(err)
 
 
+async def is_liked(connect, chat_id, quote_data) -> bool:
+    if quote_data is None or type(quote_data) not in (list, tuple):
+        raise TypeError
+    liked = await get_liked(connect, chat_id)
+    user_name = await get_user_name(connect, chat_id)
+    if user_name is None:
+        return True
+    if liked is None:
+        return False
+    quote_id = quote_data[0]
+    category_id = quote_data[1]
+    for item in liked:
+        if quote_id in item and category_id in item:
+            return True
+    return False
+
+
 connection = create_connection(CONFIG)
 
 
 async def main():
-    pass
-
+    keys = ["quote_id", "quote", "author"]
+    await add_category(connection, "great_people")
+    await fill_table(connection, "great_people", "categories", keys, "../data/great_people.json")
 
 if __name__ == "__main__":
     asyncio.run(main())
