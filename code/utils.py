@@ -102,7 +102,7 @@ def get_inline_keyboard(data: str, like_visible=True):
 #     return format_text(data, amount_keys)
 
 async def get_quote(category: str, chat_id: int, amount_keys=None) -> str | None:
-    category_id = await db.get_category_id("categories", category)
+    category_id = await db.get_category_id(category)
     if chat_id not in users_queue or users_queue[chat_id] is None or category_id not in users_queue[chat_id]:
         start = 1
         end = await db.get_amount_category_quotes(category)

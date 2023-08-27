@@ -1,3 +1,5 @@
+import random
+
 from aiogram import types, F, Router
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import CallbackQuery
@@ -110,7 +112,7 @@ async def callback_get_liked_quote(callback: CallbackQuery):
     if quote_id is None:
         builder.row(types.InlineKeyboardButton(text="вернуться на главную", callback_data="clear_comeback_to_menu"))
         await callback.message.edit_text("Больше цитат нет", reply_markup=builder.as_markup())
-    category = await db.get_category_name("categories", category_id)
+    category = await db.get_category_name(category_id)
     amount_keys = 3 if category == 'books' else 2
     builder.row(types.InlineKeyboardButton(text="следующая", callback_data="get_next_liked_quote"))
     builder.row(types.InlineKeyboardButton(text="удалить", callback_data="unlike_quote"))
@@ -179,6 +181,9 @@ async def callback_add_quote(callback: CallbackQuery):
 async def callback_cmd_categories(callback: CallbackQuery):
     kb = [
         [
+            types.InlineKeyboardButton(text="случайная", callback_data="next_random_quote"),
+        ],
+        [
             types.InlineKeyboardButton(text="фильмы", callback_data='next_movies_quote'),
             types.InlineKeyboardButton(text="сериалы", callback_data="next_series_quote"),
         ],
@@ -205,8 +210,14 @@ async def callback_cmd_categories(callback: CallbackQuery):
 
 
 async def next_quote(callback: CallbackQuery, category):
-    amount_keys = 3 if category in ("books", "series") else 2
-    quote = await get_quote(category, callback.from_user.id, amount_keys)
+    if category == "random":
+        category = random.choice(sql.categories)
+        amount_keys = 3 if category in ("books", "series") else 2
+        quote = utils.format_text(await db.get_random_quote(category), amount_keys)
+        category = "random"
+    else:
+        amount_keys = 3 if category in ("books", "series") else 2
+        quote = await get_quote(category, callback.from_user.id, amount_keys)
     if quote is not None:
         quote_data = sql.last_quote_data
         like_visible = not await db.is_liked(callback.from_user.id, quote_data)
@@ -224,6 +235,11 @@ async def next_quote(callback: CallbackQuery, category):
 @router.callback_query(F.data == "next_great_people_quote")
 async def callback_next_great_people_quote(callback: CallbackQuery):
     await next_quote(callback, "great_people")
+
+
+@router.callback_query(F.data == "next_random_quote")
+async def callback_next_random_quote(callback: CallbackQuery):
+    await next_quote(callback, "random")
 
 
 @router.callback_query(F.data == "next_with_meaning_quote")
@@ -278,7 +294,7 @@ async def callback_like_quote(callback: CallbackQuery):
     quote_id = data[0]
     category_id = data[1]
     await db.like_quote(quote_id, category_id, callback.from_user.id)
-    category = await db.get_category_name("categories", category_id)
+    category = await db.get_category_name(category_id)
     builder = get_inline_keyboard(f"next_{category}_quote", like_visible=False)
     amount_keys = 3 if category == 'books' else 2
     await callback.message.edit_text(utils.format_text(data, amount_keys), reply_markup=builder.as_markup())

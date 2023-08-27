@@ -1,5 +1,7 @@
 import asyncio
 import json
+import random
+
 import mysql.connector
 from mysql.connector import Error
 import logging
@@ -15,6 +17,12 @@ CONFIG = {
     'database': config.database.get_secret_value(),
     'raise_on_warnings': config.raise_on_warnings
 }
+
+categories = (
+    "books", "with_meaning",
+    "games", "great_people",
+    "movies", "series",
+)
 
 
 create_users_table = f"""
@@ -142,12 +150,8 @@ cmds_create_tables = [
 class SQLDataBase:
 
     def __init__(self, configuration: dict):
-        connect = None
-        try:
-            connect = mysql.connector.connect(**configuration)
-            logging.log(level=logging.INFO, msg="connected to MySQL")
-        except Error as err:
-            logging.log(level=logging.CRITICAL, msg=err)
+        connect = mysql.connector.connect(**configuration)
+        logging.log(level=logging.INFO, msg="connected to MySQL")
         self._connect = connect
         self._cursor = self._connect.cursor()
 
@@ -164,9 +168,9 @@ class SQLDataBase:
         except Error as err:
             logging.critical(f"{err}, query: {query}")
 
-    async def get_category_name(self, main_table, category_id) -> str | None:
+    async def get_category_name(self, category_id) -> str | None:
         try:
-            query = f"SELECT category FROM {main_table} WHERE (id={category_id})"
+            query = f"SELECT category FROM categories WHERE (id={category_id})"
             self._cursor.execute(query)
             res = self._cursor.fetchall()
             logging.log(logging.INFO, "successfully got category name")
@@ -177,9 +181,9 @@ class SQLDataBase:
         except Error as err:
             logging.critical(err)
 
-    async def get_category_id(self, main_table, category) -> int | None:
+    async def get_category_id(self, category) -> int | None:
         try:
-            query = f"SELECT id FROM {main_table} WHERE category='{category}'"
+            query = f"SELECT id FROM categories WHERE category='{category}'"
             self._cursor.execute(query)
             res = self._cursor.fetchall()
             logging.log(logging.INFO, "successfully got category id")
@@ -392,6 +396,13 @@ class SQLDataBase:
     async def unlike_quote(self, quote_id, category_id, chat_id) -> None:
         query = f"DELETE FROM likes WHERE (quote_id={quote_id} AND category_id={category_id} AND chat_id={chat_id})"
         await self.execute_query(query)
+
+    async def get_random_quote(self, category=None):
+        if category is None:
+            category = random.choice(categories)
+        amount_quotes = await self.get_amount_category_quotes(category)
+        print(category)
+        return await self.get_quote(category, random.randint(1, amount_quotes))
 
     async def get_amount_liked(self, chat_id) -> int | None:
         try:

@@ -37,7 +37,7 @@ async def cmd_add_quote(message: types.Message):
         await message.answer("Для того чтобы добавить цитату, нужно указать свое имя", reply_markup=builder.as_markup())
     else:
         data = {}
-        category_id = await db.get_category_id("categories", "from_users")
+        category_id = await db.get_category_id("from_users")
         data["category_id"] = category_id
         data["quote"] = message.text
         data["author"] = await db.get_user_name(message.chat.id)
